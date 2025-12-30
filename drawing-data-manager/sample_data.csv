@@ -1,0 +1,6 @@
+Element ID,Description,Value,Unit,Status
+E007,Wall panel,3.5,m,new
+E008,Window frame,1.2,m,verified
+E009,Door opening,0.9,m,modified
+E010,Roof truss,5.0,m,verified
+E011,Floor slab,0.2,m,deleted
