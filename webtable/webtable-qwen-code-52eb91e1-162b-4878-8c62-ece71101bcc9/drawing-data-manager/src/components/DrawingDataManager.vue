@@ -298,9 +298,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
 import Sortable from 'sortablejs';
-import * as XLSX from 'xlsx/dist/xlsx.full.min.js';
-import { parse } from 'csv-parse/dist/umd/sync'
-import { createObjectCsvStringifier } from 'csv-writer';
+import * as XLSX from 'xlsx';
+import { parse } from 'csv-parse/sync';
 
 // Define types
 interface DrawingDataItem {
@@ -590,23 +589,23 @@ const exportData = async (format: 'csv' | 'xlsx') => {
   });
 
   if (format === 'csv') {
-    // Using csv-writer for proper CSV formatting
-    const csvStringifier = createObjectCsvStringifier({
-   header: Object.keys(data[0]).map(key => ({ id: key, title: key }))
- });
- const csvContent = csvStringifier.getHeaderString() + 
-                    csvStringifier.stringifyRecords(data);
-
-    const csvBuffer = await csvWriter.writeRecords(rows);
+    // Create CSV content manually
+    const headerRow = visibleColumns.value.map(col => `"${col.label}"`).join(',');
+    const dataRows = rows.map(row => 
+      visibleColumns.value.map(col => {
+        // Escape quotes and wrap in quotes for CSV format
+        let value = String(row[col.key] || '');
+        value = value.replace(/"/g, '""'); // Escape quotes by doubling them
+        return `"${value}"`;
+      }).join(',')
+    ).join('\n');
+    
+    const csvContent = `${headerRow}\n${dataRows}`;
     
     // Create and download the file
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'data.csv';
-    a.click();
     link.setAttribute('href', url);
     link.setAttribute('download', `drawing_data_export_${new Date().toISOString().slice(0, 10)}.csv`);
     link.style.visibility = 'hidden';
@@ -644,19 +643,10 @@ const handleFileImport = async (event: Event) => {
       // Handle CSV import
       const text = await file.text();
       
-      // Parse CSV content using a promise-based approach
-      const parsedData = await new Promise<any[]>((resolve, reject) => {
-        parse(text, { 
-          columns: true,
-          skip_empty_lines: true
-        }, (err, output) => {
-          if (err) {
-            console.error('Error parsing CSV:', err);
-            reject(err);
-            return;
-          }
-          resolve(output);
-        });
+      // Parse CSV content using the synchronous parse function
+      const parsedData = parse(text, { 
+        columns: true,
+        skip_empty_lines: true
       });
       
       const importedData: DrawingDataItem[] = [];
